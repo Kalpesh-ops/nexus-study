@@ -10,10 +10,13 @@ Get these from Supabase dashboard > Project Settings > API.
 - `Project URL` -> use for:
   - `web/.env` as `NEXT_PUBLIC_SUPABASE_URL`
   - backend `.env` as `SUPABASE_URL`
-- `anon public key` -> use for:
+- `publishable key` (preferred) -> use for:
+  - `web/.env` as `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `anon public key` (legacy fallback) -> use for:
   - `web/.env` as `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `service_role key` -> use for:
-  - backend `.env` as `SUPABASE_KEY`
+- `secret` / `service_role key` -> use for backend only:
+  - backend `.env` as `SUPABASE_SERVICE_ROLE_KEY`
+  - (legacy fallback supported: `SUPABASE_KEY`)
 
 Note: Do NOT put service role key in frontend env.
 
@@ -34,7 +37,7 @@ Copy from `.env.example` and fill:
 
 ```env
 SUPABASE_URL=
-SUPABASE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 REDIS_URL=
 GOOGLE_SAFE_BROWSING_API_KEY=
 ```
@@ -45,7 +48,7 @@ Copy from `web/.env.example` and fill:
 ```env
 NEXT_PUBLIC_SITE_URL=
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ENFORCE_DOMAIN_RESTRICTION=true
 ALLOWED_EMAIL_DOMAIN=@vitbhopal.ac.in
 NEXT_PUBLIC_DEV_MODE=false

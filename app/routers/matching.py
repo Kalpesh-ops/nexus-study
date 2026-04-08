@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 from typing import Any
 from uuid import uuid4
@@ -19,6 +20,7 @@ _redis: Redis | None = None
 _pubsub_task: asyncio.Task | None = None
 _active_connections: dict[str, WebSocket] = {}
 _connections_lock = asyncio.Lock()
+_logger = logging.getLogger(__name__)
 
 
 class OfferPayload(BaseModel):
@@ -222,9 +224,16 @@ async def startup_matching() -> None:
         return
 
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    _redis = Redis.from_url(redis_url, decode_responses=True)
-    await _redis.ping()
-    _pubsub_task = asyncio.create_task(_pubsub_listener())
+    redis_client = Redis.from_url(redis_url, decode_responses=True)
+    try:
+        await redis_client.ping()
+        _redis = redis_client
+        _pubsub_task = asyncio.create_task(_pubsub_listener())
+    except Exception as exc:
+        _logger.warning("Redis unavailable at startup. Matching disabled until Redis is reachable: %s", exc)
+        await redis_client.close()
+        _redis = None
+        _pubsub_task = None
 
 
 async def shutdown_matching() -> None:
@@ -264,9 +273,12 @@ async def matching_websocket(websocket: WebSocket) -> None:
                 async with _connections_lock:
                     _active_connections[user_id] = websocket
 
-                await _enqueue_user(subject, user_id)
-                await websocket.send_json({"status": "queued", "subject": subject})
-                await _try_match_subject(subject)
+                try:
+                    await _enqueue_user(subject, user_id)
+                    await websocket.send_json({"status": "queued", "subject": subject})
+                    await _try_match_subject(subject)
+                except HTTPException as exc:
+                    await websocket.send_json({"status": "error", "message": exc.detail})
                 continue
 
             await websocket.send_json({"status": "error", "message": "Unsupported action"})
@@ -341,4 +353,7 @@ async def signaling_ice_candidate(payload: IceCandidatePayload) -> dict[str, str
 
 @router.get("/health")
 async def matching_health() -> dict[str, str]:
-    return {"message": "matching router is healthy"}
+    return {
+        "message": "matching router is healthy",
+        "redis": "connected" if _redis is not None else "disconnected",
+    }
