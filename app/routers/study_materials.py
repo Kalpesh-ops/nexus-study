@@ -39,10 +39,19 @@ async def generate_study_materials(request: GenerateRequest) -> GenerateResponse
     
     if not subject:
         raise HTTPException(status_code=400, detail="Subject cannot be empty")
-    
+
     try:
         supabase = get_supabase_client()
-        
+    except Exception:
+        generated_materials: StudyMaterials = generate_mock_study_materials(subject)
+        return GenerateResponse(
+            subject=subject,
+            flashcards=generated_materials["flashcards"],
+            quiz_questions=generated_materials["quiz_questions"],
+            from_cache=False,
+        )
+    
+    try:
         # Query Supabase to check if materials exist for this subject
         response = supabase.table("study_materials").select("*").eq("subject", subject).execute()
         

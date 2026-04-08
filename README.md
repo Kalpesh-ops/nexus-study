@@ -1,5 +1,37 @@
 ﻿# nexus-study
 
+## Quick local run
+
+1. Backend env:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Start backend:
+
+```powershell
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+3. Frontend env:
+
+```powershell
+Copy-Item web/.env.example web/.env.local
+```
+
+4. Start frontend:
+
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+Notes:
+- `study-materials` now works even if Supabase keys are missing (no cache persistence in that case).
+- `matching` needs Redis (`REDIS_URL`) to pair peers in real time.
+
 ## Redis-backed matching engine
 
 Set Redis URL (optional, defaults to `redis://localhost:6379/0`):

@@ -7,7 +7,12 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/';
 
   if (code) {
-    const supabase = await createClient();
+    let supabase;
+    try {
+      supabase = await createClient();
+    } catch {
+      return NextResponse.redirect(`${origin}/?error=config_missing`);
+    }
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 

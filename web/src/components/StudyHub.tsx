@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { RotateCcw, ChevronLeft, ChevronRight, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -10,39 +10,96 @@ interface Flashcard {
   answer: string
 }
 
-const flashcards: Flashcard[] = [
-  { id: "1", question: "What is the time complexity of binary search?", answer: "O(log n)" },
-  { id: "2", question: "What is a hash table?", answer: "A data structure that maps keys to values using a hash function." },
-  { id: "3", question: "What is the difference between stack and queue?", answer: "Stack is LIFO (Last In First Out), Queue is FIFO (First In First Out)." },
-  { id: "4", question: "What is recursion?", answer: "A function that calls itself to solve smaller subproblems." },
-  { id: "5", question: "What is Big O notation?", answer: "A mathematical notation that describes the upper bound of an algorithm's time or space complexity." },
-]
+interface QuizQuestion {
+  id: string
+  question: string
+  options: string[]
+  correctAnswer: number
+}
 
-const quizQuestions = [
-  {
-    id: "1",
-    question: "Which data structure uses LIFO?",
-    options: ["Queue", "Stack", "Array", "Linked List"],
-    correctAnswer: 1,
-  },
-  {
-    id: "2",
-    question: "What is the worst-case time complexity of quick sort?",
-    options: ["O(n)", "O(n log n)", "O(n²)", "O(log n)"],
-    correctAnswer: 2,
-  },
-  {
-    id: "3",
-    question: "Which algorithm is used to find the shortest path in a weighted graph?",
-    options: ["DFS", "BFS", "Dijkstra", "Binary Search"],
-    correctAnswer: 2,
-  },
-]
+interface GenerateResponse {
+  flashcards: Array<{ question: string; answer: string }>
+  quiz_questions: Array<{ question: string; options: string[]; correct_answer: string }>
+}
 
-export function StudyHub() {
+interface StudyHubProps {
+  subject: string
+  apiBaseUrl: string
+}
+
+export function StudyHub({ subject, apiBaseUrl }: StudyHubProps) {
   const [currentCard, setCurrentCard] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const hasSubject = useMemo(() => !!subject.trim(), [subject])
+
+  useEffect(() => {
+    const loadStudyMaterials = async () => {
+      if (!hasSubject) {
+        setFlashcards([])
+        setQuizQuestions([])
+        setQuizAnswers([])
+        setCurrentCard(0)
+        setIsFlipped(false)
+        return
+      }
+
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/study-materials/generate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ subject }),
+        })
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}))
+          const message = typeof body.detail === "string" ? body.detail : "Failed to load study materials"
+          throw new Error(message)
+        }
+
+        const data = (await response.json()) as GenerateResponse
+
+        setFlashcards(
+          (data.flashcards || []).map((card, index) => ({
+            id: String(index + 1),
+            question: card.question,
+            answer: card.answer,
+          }))
+        )
+
+        setQuizQuestions(
+          (data.quiz_questions || []).map((q, index) => ({
+            id: String(index + 1),
+            question: q.question,
+            options: q.options,
+            correctAnswer: Math.max(0, q.options.findIndex((opt) => opt === q.correct_answer)),
+          }))
+        )
+        setCurrentCard(0)
+        setIsFlipped(false)
+        setQuizAnswers([])
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load study materials"
+        setError(message)
+        setFlashcards([])
+        setQuizQuestions([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadStudyMaterials()
+  }, [apiBaseUrl, hasSubject, subject])
 
   const handleNextCard = () => {
     setIsFlipped(false)
@@ -72,6 +129,22 @@ export function StudyHub() {
     return quizQuestions.reduce((score, q, i) => {
       return score + (quizAnswers[i] === q.correctAnswer ? 1 : 0)
     }, 0)
+  }
+
+  if (!hasSubject) {
+    return <p className="text-sm text-muted-foreground">Enter a subject and start matching to load AI study materials.</p>
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading study materials for {subject}...</p>
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-500">{error}</p>
+  }
+
+  if (flashcards.length === 0 || quizQuestions.length === 0) {
+    return <p className="text-sm text-muted-foreground">No study content found for this subject yet.</p>
   }
 
   return (

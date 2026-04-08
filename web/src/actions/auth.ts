@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
 export async function signInWithGoogle() {
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    redirect('/?error=config_missing');
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -28,7 +33,13 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    redirect('/?error=config_missing');
+  }
+
   await supabase.auth.signOut();
   redirect('/');
 }
