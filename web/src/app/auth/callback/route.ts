@@ -1,22 +1,30 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import type { EmailOtpType } from '@supabase/supabase-js';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
-  const token_hash = searchParams.get('token_hash');
-  const type = searchParams.get('type') as EmailOtpType | null;
+  const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/';
 
-  if (token_hash && type) {
+  if (code) {
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash,
-      type,
-    });
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const enforceDomainRestriction = process.env.ENFORCE_DOMAIN_RESTRICTION === 'true';
+      const allowedDomain = process.env.ALLOWED_EMAIL_DOMAIN || '@vitbhopal.ac.in';
+      const email = user?.email?.toLowerCase() ?? '';
+
+      if (enforceDomainRestriction && !email.endsWith(allowedDomain.toLowerCase())) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/?error=forbidden_domain`);
+      }
+
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, type Variants } from 'framer-motion';
 import { Sparkles, ArrowRight, BookOpen, Users, Zap } from 'lucide-react';
 import { signInWithGoogle, signOut } from '@/actions/auth';
-import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 
 interface LandingPageProps {
   user: { email: string | null } | null;
@@ -13,19 +11,8 @@ interface LandingPageProps {
 
 export default function LandingPage({ user }: LandingPageProps) {
   const [show403Modal, setShow403Modal] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
 
   const handleSignIn = async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    if (currentUser?.email && !currentUser.email.endsWith('@vitbhopal.ac.in')) {
-      if (!process.env.NEXT_PUBLIC_DEV_MODE) {
-        setShow403Modal(true);
-        return;
-      }
-    }
-    
     await signInWithGoogle();
   };
 
@@ -33,7 +20,18 @@ export default function LandingPage({ user }: LandingPageProps) {
     await signOut();
   };
 
-  const heroVariants = {
+  useEffect(() => {
+    const checkUserEmail = async () => {
+      if (user?.email && !user.email.endsWith('@vitbhopal.ac.in')) {
+        if (process.env.NEXT_PUBLIC_DEV_MODE !== 'true') {
+          setShow403Modal(true);
+        }
+      }
+    };
+    checkUserEmail();
+  }, [user]);
+
+  const heroVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -44,12 +42,12 @@ export default function LandingPage({ user }: LandingPageProps) {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.8, ease: [0.25, 0.4, 0.25, 1] },
+      transition: { duration: 0.8, ease: [0.25, 0.4, 0.25, 1] as const },
     },
   };
 
